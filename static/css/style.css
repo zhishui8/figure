@@ -1,0 +1,46 @@
+body {
+  background-color: #f4f6f9;
+}
+
+.summary-card {
+  border: none;
+  border-radius: 1rem;
+  color: #fff;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+.summary-card .card-body {
+  padding: 1.5rem;
+}
+
+.summary-card.income {
+  background: linear-gradient(135deg, #3ac47d, #56d8a7);
+}
+
+.summary-card.expense {
+  background: linear-gradient(135deg, #f04d4d, #f68686);
+}
+
+.summary-card.net {
+  background: linear-gradient(135deg, #4d79f0, #6da3ff);
+}
+
+.table thead th {
+  font-size: 0.9rem;
+  color: #6c757d;
+  text-transform: uppercase;
+}
+
+.card-header {
+  font-weight: 600;
+}
+
+.flash-container {
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .summary-card .display-6 {
+    font-size: 2rem;
+  }
+}
