@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card summary-card income">
+      <div class="card-body">
+        <h5 class="card-title">累计收入</h5>
+        <p class="display-6 fw-bold">¥ {{ total_income|currency }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card summary-card expense">
+      <div class="card-body">
+        <h5 class="card-title">累计支出</h5>
+        <p class="display-6 fw-bold">¥ {{ total_expense|currency }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="card summary-card net">
+      <div class="card-body">
+        <h5 class="card-title">结余</h5>
+        <p class="display-6 fw-bold">¥ {{ net_total|currency }}</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">新增账目</div>
+      <div class="card-body">
+        <form method="post" class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label" for="date">日期</label>
+            <input class="form-control" type="date" id="date" name="date" value="{{ request.form.get('date', today.strftime('%Y-%m-%d')) }}" required />
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="partner">参与者</label>
+            <select class="form-select" id="partner" name="partner" required>
+              <option value="">请选择</option>
+              {% for value, label in partner_choices %}
+              <option value="{{ value }}">{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="type">类型</label>
+            <select class="form-select" id="type" name="type" required>
+              <option value="income">收入</option>
+              <option value="expense">支出</option>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label class="form-label" for="amount">金额</label>
+            <input class="form-control" type="number" step="0.01" min="0" id="amount" name="amount" placeholder="0.00" required />
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="category">分类</label>
+            <input class="form-control" list="categoryOptions" id="category" name="category" placeholder="如：餐饮" required />
+            <datalist id="categoryOptions">
+              {% for option in category_suggestions %}
+              <option value="{{ option }}"></option>
+              {% endfor %}
+            </datalist>
+          </div>
+          <div class="col-12">
+            <label class="form-label" for="description">备注</label>
+            <textarea class="form-control" id="description" name="description" rows="2" placeholder="可选"></textarea>
+          </div>
+          <div class="col-12 text-end">
+            <button type="submit" class="btn btn-primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">情侣分担情况</div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th>参与者</th>
+                <th class="text-end">收入</th>
+                <th class="text-end">支出</th>
+                <th class="text-end">净贡献</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for value, label in partner_choices %}
+              {% set data = partner_summary.get(value, {'income': 0, 'expense': 0, 'net': 0}) %}
+              <tr>
+                <td>{{ label }}</td>
+                <td class="text-end">¥ {{ data.income|currency }}</td>
+                <td class="text-end">¥ {{ data.expense|currency }}</td>
+                <td class="text-end">¥ {{ data.net|currency }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <canvas id="partnerChart" height="160"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header">月度趋势</div>
+      <div class="card-body">
+        <canvas id="monthlyChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header">支出分类</div>
+      <div class="card-body">
+        {% if category_breakdown %}
+        <ul class="list-group list-group-flush mb-3">
+          {% for name, amount in category_breakdown[:6] %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            {{ name }}
+            <span>¥ {{ amount|currency }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">暂无支出记录</p>
+        {% endif %}
+        <canvas id="categoryChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">账目明细</div>
+  <div class="card-body">
+    {% if transactions %}
+    <div class="table-responsive">
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>日期</th>
+            <th>参与者</th>
+            <th>类型</th>
+            <th>分类</th>
+            <th class="text-end">金额</th>
+            <th>备注</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in transactions %}
+          <tr>
+            <td>{{ item.date.strftime('%Y-%m-%d') }}</td>
+            <td>{{ dict(partner_choices).get(item.partner, item.partner) }}</td>
+            <td>
+              <span class="badge bg-{{ 'success' if item.type == 'income' else 'danger' }}">{{ '收入' if item.type == 'income' else '支出' }}</span>
+            </td>
+            <td>{{ item.category }}</td>
+            <td class="text-end">¥ {{ item.amount|currency }}</td>
+            <td>{{ item.description or '' }}</td>
+            <td class="text-end">
+              <form method="post" action="{{ url_for('delete_transaction', transaction_id=item.id) }}" onsubmit="return confirm('确定要删除这条记录吗？');">
+                <button class="btn btn-sm btn-outline-danger" type="submit">删除</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-muted mb-0">暂无记录，赶快添加第一笔账目吧！</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const partnerChartData = {
+    labels: {{ partner_labels|tojson }},
+    income: {{ partner_income_series|tojson }},
+    expense: {{ partner_expense_series|tojson }},
+  };
+  const monthlyChartData = {{ monthly_chart|tojson }};
+  const categoryChartData = {{ category_chart|tojson }};
+</script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}
